@@ -31,7 +31,9 @@ export const useRadioStore = create<RadioState>((set, get) => ({
   isLoading: true,
   error: null,
   isDjSpeaking: false,
-  isAudioPlaying: false, // New flag to track if any audio is currently playing
+  isChatResponse: false, // New flag to differentiate between track announcements and chat responses
+  isAudioPlaying: false, // Flag to track if any audio is currently playing
+  isTrackChanging: false, // New flag to lock the track changing process
   
   // Content
   currentTrack: null,
@@ -102,98 +104,14 @@ export const useRadioStore = create<RadioState>((set, get) => ({
   
   startWelcomeSequence: async () => {
     try {
-      console.log('Starting welcome sequence');
-      const state = get();
-      const { setDjSpeaking } = get();
+      console.log('Starting welcome sequence - skipping directly to first track');
       
-      // If audio is already playing, don't start welcome sequence
-      if (state.isAudioPlaying) {
-        console.log('Audio is already playing, ignoring welcome sequence');
-        return;
-      }
-      
-      // Set the audio playing flag to prevent multiple audio elements
-      set({ isAudioPlaying: true });
-      
-      // Generate welcome announcement
-      const welcomeText = 'Welcome to AI Radio! I\'m DJ ByteBeat and I\'ll be playing some great tunes for you today.';
-      console.log('Welcome text:', welcomeText);
-      
-      // Generate speech for welcome announcement
-      setDjSpeaking(true);
-      console.log('Calling elevenlabsService.generateAnnouncement');
-      const audioUrl = await elevenlabsService.generateAnnouncement(welcomeText);
-      console.log('Received audio URL from elevenlabsService:', audioUrl);
-      
-      if (audioUrl) {
-        console.log('Playing welcome message audio');
-        // Create a promise that resolves when the DJ audio finishes
-        await new Promise<void>((resolve) => {
-          const audio = new Audio();
-          
-          audio.onended = () => {
-            console.log('Welcome message ended, starting first track');
-            setDjSpeaking(false);
-            resolve();
-          };
-          
-          audio.onerror = (e) => {
-            console.error('Error playing welcome message:', e);
-            console.error('Audio error details:', {
-              error: audio.error,
-              networkState: audio.networkState,
-              readyState: audio.readyState,
-              src: audio.src
-            });
-            setDjSpeaking(false);
-            // Don't reject, just continue to the next track
-            console.log('Error with welcome audio, continuing to first track');
-            resolve();
-          };
-          
-          // Add more detailed logging
-          audio.addEventListener('loadstart', () => console.log('Welcome audio loadstart event'));
-          audio.addEventListener('canplay', () => console.log('Welcome audio canplay event'));
-          audio.addEventListener('canplaythrough', () => console.log('Welcome audio canplaythrough event'));
-          audio.addEventListener('play', () => console.log('Welcome audio play event'));
-          audio.addEventListener('playing', () => console.log('Welcome audio playing event'));
-          
-          // Load and play the audio
-          audio.src = audioUrl;
-          audio.load();
-          console.log('Welcome audio loaded, attempting to play');
-          const playPromise = audio.play();
-          
-          if (playPromise !== undefined) {
-            playPromise.catch(error => {
-              console.error('Error playing welcome message:', error);
-              console.error('This is likely due to browser autoplay restrictions');
-              setDjSpeaking(false);
-              // Don't reject, just continue to the next track
-              console.log('Autoplay blocked, continuing to first track');
-              resolve();
-            });
-          }
-        });
-      } else {
-        console.log('No audio URL received for welcome message');
-        setDjSpeaking(false);
-      }
-      
-      // Clear the audio playing flag before starting the next track
-      set({ isAudioPlaying: false });
-      
-      // Start first track after welcome message
-      console.log('Welcome sequence completed, calling nextTrack');
+      // Start first track immediately
       await get().nextTrack();
       
     } catch (error) {
       console.error('Error in welcome sequence:', error);
-      const { setDjSpeaking } = get();
-      setDjSpeaking(false);
-      // Reset the audio playing flag
-      set({ isAudioPlaying: false });
-      // Try to start first track even if welcome fails
+      // Try to start first track even if there's an error
       console.log('Attempting to recover by calling nextTrack');
       await get().nextTrack();
     }
@@ -220,13 +138,21 @@ export const useRadioStore = create<RadioState>((set, get) => ({
     try {
       console.log('nextTrack called');
       const state = get();
-      const { setDjSpeaking } = get();
       
       // If audio is already playing, don't start another track
       if (state.isAudioPlaying) {
         console.log('Audio is already playing, ignoring nextTrack call');
         return;
       }
+      
+      // If track changing is locked, don't start another track
+      if (state.isTrackChanging) {
+        console.log('Track changing is locked, ignoring nextTrack call');
+        return;
+      }
+      
+      // Set the track changing flag to prevent multiple track changes
+      set({ isTrackChanging: true });
       
       // Set the audio playing flag to prevent multiple audio elements
       set({ isAudioPlaying: true });
@@ -239,7 +165,7 @@ export const useRadioStore = create<RadioState>((set, get) => ({
         
         if (tracks.length === 0) {
           console.error('No tracks available');
-          set({ error: 'No tracks available. Please try again later.', isAudioPlaying: false });
+          set({ error: 'No tracks available. Please try again later.', isAudioPlaying: false, isTrackChanging: false });
           return;
         }
         
@@ -272,13 +198,14 @@ export const useRadioStore = create<RadioState>((set, get) => ({
       set({ 
         currentTrack: nextTrack,
         queue: remainingQueue,
-        isPlaying: true // Set to playing state
+        isPlaying: true, // Set to playing state
+        isChatResponse: false // Set to false for track announcements
       });
       
       // Generate DJ intro for the track
       try {
         console.log('Generating DJ intro for track');
-        setDjSpeaking(true);
+        set({ isDjSpeaking: true });
         
         // Generate intro text
         const introText = await openaiService.generateTrackIntro(nextTrack);
@@ -304,7 +231,7 @@ export const useRadioStore = create<RadioState>((set, get) => ({
             
             audio.onended = () => {
               console.log('DJ intro ended, track should start playing');
-              setDjSpeaking(false);
+              set({ isDjSpeaking: false });
               // The AudioPlayer component will handle playing the actual track
               resolve();
             };
@@ -317,7 +244,7 @@ export const useRadioStore = create<RadioState>((set, get) => ({
                 readyState: audio.readyState,
                 src: audio.src
               });
-              setDjSpeaking(false);
+              set({ isDjSpeaking: false });
               console.log('Error with DJ intro audio, continuing to track');
               resolve();
             };
@@ -340,7 +267,7 @@ export const useRadioStore = create<RadioState>((set, get) => ({
               playPromise.catch(error => {
                 console.error('Error playing DJ intro:', error);
                 console.error('This is likely due to browser autoplay restrictions');
-                setDjSpeaking(false);
+                set({ isDjSpeaking: false });
                 console.log('Autoplay blocked, continuing to track');
                 resolve();
               });
@@ -348,19 +275,19 @@ export const useRadioStore = create<RadioState>((set, get) => ({
           });
         } else {
           console.log('No audio URL for DJ intro, skipping');
-          setDjSpeaking(false);
+          set({ isDjSpeaking: false });
         }
       } catch (error) {
         console.error('Error generating DJ intro:', error);
-        setDjSpeaking(false);
+        set({ isDjSpeaking: false });
       }
       
       // Clear the audio playing flag after everything is done
-      set({ isAudioPlaying: false });
+      set({ isAudioPlaying: false, isTrackChanging: false });
       
     } catch (error) {
       console.error('Error in nextTrack:', error);
-      set({ error: 'Error playing next track. Please try again.', isAudioPlaying: false });
+      set({ error: 'Error playing next track. Please try again.', isAudioPlaying: false, isTrackChanging: false });
     }
   },
   
@@ -382,27 +309,22 @@ export const useRadioStore = create<RadioState>((set, get) => ({
   
   // User interaction
   addUserMessage: async (content: string) => {
-    const { setDjSpeaking } = get();
-    
     try {
-      // Generate response text
-      const responseText = await openaiService.generateResponseToUser(content);
+      console.log('User sent message:', content);
       
-      // Generate speech for response
-      setDjSpeaking(true);
-      const audioUrl = await elevenlabsService.textToSpeech(responseText);
+      // Add the message to the content items
+      get().addContentItem(content, 'message');
       
-      if (audioUrl) {
-        // Play the response
-        const audio = new Audio(audioUrl);
-        audio.onended = () => setDjSpeaking(false);
-        audio.play();
-      } else {
-        setDjSpeaking(false);
+      // Check if this is a song request
+      if (content.toLowerCase().includes('play') && (content.toLowerCase().includes('song') || content.includes('"'))) {
+        console.log('This appears to be a song request');
+        // For now, just acknowledge the request
+        // In a real implementation, this would search for the requested song and add it to the queue
+        const responseText = `Thanks for your song request! I've added it to the queue.`;
+        get().addContentItem(responseText, 'announcement');
       }
     } catch (error) {
-      console.error('Error generating AI DJ response:', error);
-      setDjSpeaking(false);
+      console.error('Error processing user message:', error);
     }
   },
   

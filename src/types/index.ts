@@ -56,7 +56,9 @@ export interface RadioState {
   volume: number;
   progress: number;
   isDjSpeaking: boolean;
+  isChatResponse: boolean; // Flag to differentiate between track announcements and chat responses
   isAudioPlaying: boolean; // Flag to track if any audio is currently playing
+  isTrackChanging: boolean; // Flag to lock the track changing process
   
   // Playlist management
   playlist: Track[];

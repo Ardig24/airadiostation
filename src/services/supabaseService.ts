@@ -20,6 +20,7 @@ export interface Track {
   tempo?: number;
   duration: number;
   created_at?: string;
+  releaseDate?: string;
 }
 
 export interface Content {
@@ -451,39 +452,45 @@ export class SupabaseService {
     return [
       {
         id: '1',
-        title: 'Tech House Vibes',
-        artist: 'Ahjay Stelino',
-        album: 'Electronic Collection',
-        file_url: 'https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3',
+        title: 'Guitar Instrumental',
+        artist: 'Sound Effects',
+        album: 'Free Audio Collection',
+        file_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         cover_art_url: 'https://picsum.photos/seed/track1/300/300',
-        genre: ['Electronic', 'House'],
-        mood: ['Energetic', 'Groovy'],
-        tempo: 128,
-        duration: 146
+        genre: ['Acoustic', 'Instrumental'],
+        mood: ['Relaxing', 'Melodic'],
+        tempo: 120,
+        duration: 372, // Actual duration of SoundHelix-Song-1 is about 6:12 (372 seconds)
+        created_at: new Date().toISOString(),
+        releaseDate: '2023-01-01'
       },
       {
         id: '2',
-        title: 'Summer Nights',
-        artist: 'Ahjay Stelino',
+        title: 'Electronic Beat',
+        artist: 'Sound Library',
         album: 'Royalty Free Music',
-        file_url: 'https://assets.mixkit.co/music/preview/mixkit-summer-nights-135.mp3',
+        file_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', // Using Song-3 instead of Song-2
         cover_art_url: 'https://picsum.photos/seed/track2/300/300',
-        genre: ['Electronic'],
-        mood: ['Upbeat', 'Cheerful'],
-        tempo: 120,
-        duration: 177
+        genre: ['Electronic', 'Dance'],
+        mood: ['Energetic', 'Upbeat'],
+        tempo: 140,
+        duration: 380, // Approximate duration in seconds
+        created_at: new Date().toISOString(),
+        releaseDate: '2023-02-15'
       },
       {
         id: '3',
-        title: 'Hip Hop 02',
-        artist: 'Lily J',
-        album: 'Urban Beats',
-        file_url: 'https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3',
+        title: 'Ambient Melody',
+        artist: 'Audio Archive',
+        album: 'Background Music',
+        file_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', // Using Song-8 for variety
         cover_art_url: 'https://picsum.photos/seed/track3/300/300',
-        genre: ['Hip Hop'],
-        mood: ['Confident', 'Bold'],
-        tempo: 95,
-        duration: 201
+        genre: ['Ambient', 'Chill'],
+        mood: ['Calm', 'Atmospheric'],
+        tempo: 90,
+        duration: 395, // Approximate duration in seconds
+        created_at: new Date().toISOString(),
+        releaseDate: '2023-03-20'
       }
     ];
   }

@@ -3,17 +3,18 @@ import { Radio, Headphones } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
 import UserInteraction from './UserInteraction';
 import ContentDisplay from './ContentDisplay';
-import StationInfo from './StationInfo';
 import DjCard from './DjCard';
-import AudioWaves from './AudioWaves';
 import ProgramSchedule from './ProgramSchedule';
+import AdvertisementPlayer from './AdvertisementPlayer';
+import StationInfo from './StationInfo';
+import AudioWaves from './AudioWaves';
 import WeatherUpdate from './WeatherUpdate';
 import TrafficUpdate from './TrafficUpdate';
 import NewsBulletin from './NewsBulletin';
-import AdvertisementPlayer from './AdvertisementPlayer';
 import { useRadioStore } from '../store/radioStore';
 import { ContentItem } from '../types';
 import { supabase } from '../lib/supabaseClient';
+import ChatDj from './ChatDj';
 
 const RadioStation: React.FC = () => {
   const { 
@@ -24,6 +25,7 @@ const RadioStation: React.FC = () => {
     currentPlaylist,
     currentVoiceProfile,
     isDjSpeaking,
+    isChatResponse,
     listenerCount,
     isPlaying,
     isLoading,
@@ -280,6 +282,7 @@ const RadioStation: React.FC = () => {
             <DjCard 
               currentVoiceProfile={currentVoiceProfile} 
               isDjSpeaking={isDjSpeaking} 
+              isChatResponse={isChatResponse}
             />
             
             <ProgramSchedule />
@@ -304,7 +307,10 @@ const RadioStation: React.FC = () => {
               } : undefined}
             />
             
-            {/* Traffic Update moved under audio player */}
+            {/* Song Request moved under audio player */}
+            <UserInteraction />
+            
+            {/* Traffic Update moved under song request */}
             {showTraffic && (
               <TrafficUpdate />
             )}
@@ -312,7 +318,7 @@ const RadioStation: React.FC = () => {
           
           {/* Right Column */}
           <div className="col-span-1 space-y-4">
-            <UserInteraction />
+            <ChatDj />
             <ContentDisplay contentItems={displayContentItems} />
           </div>
         </div>

@@ -32,6 +32,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     isPlaying, 
     isDjSpeaking,
     isAudioPlaying,
+    isTrackChanging,
     currentTrack: storeTrack,
     togglePlayPause: storeTogglePlayPause,
     nextTrack 
@@ -72,12 +73,40 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     audio.volume = volume / 100;
     audio.muted = isMuted;
     
+    // Track start time to ensure minimum play duration
+    let trackStartTime = 0;
+    const minPlayDuration = 30000; // Minimum play time in milliseconds (30 seconds)
+    
     // Set up event listeners
+    audio.addEventListener('play', () => {
+      console.log('Track started playing');
+      trackStartTime = Date.now();
+    });
+    
     audio.addEventListener('ended', () => {
-      console.log('Track ended, moving to next track');
-      // Reset the isAudioPlaying flag in the store
-      useRadioStore.setState({ isAudioPlaying: false });
-      nextTrack();
+      console.log('Track ended, checking minimum play time');
+      
+      const playDuration = Date.now() - trackStartTime;
+      console.log(`Track played for ${playDuration}ms, minimum is ${minPlayDuration}ms`);
+      
+      if (playDuration < minPlayDuration) {
+        console.log('Track played for less than minimum time, looping track');
+        // If track played for less than minimum time, loop it
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+          console.error('Error looping track:', error);
+          // If we can't loop, wait a bit then move to next track
+          setTimeout(() => {
+            useRadioStore.setState({ isAudioPlaying: false });
+            nextTrack();
+          }, minPlayDuration - playDuration);
+        });
+      } else {
+        // Reset the isAudioPlaying flag in the store
+        console.log('Track played for minimum time, moving to next track');
+        useRadioStore.setState({ isAudioPlaying: false });
+        nextTrack();
+      }
     });
     
     audio.addEventListener('canplaythrough', () => {
@@ -110,11 +139,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Reset the isAudioPlaying flag in the store
       useRadioStore.setState({ isAudioPlaying: false });
       
-      // Try to recover by moving to the next track
-      setTimeout(() => {
-        console.log('Attempting to recover by moving to next track');
-        nextTrack();
-      }, 2000);
+      // Don't automatically move to the next track on error
+      console.log('Audio error occurred, but not automatically moving to next track');
+      // Instead, let the user manually retry or skip
     });
     
     // Add more detailed logging for debugging
@@ -135,13 +162,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       return;
     }
     
-    // For testing, always use the Mixkit URL directly
-    console.log('Original audio source:', audioSource);
-    
-    // Check if we have a valid Mixkit URL
-    if (!audioSource.includes('mixkit.co')) {
-      console.warn('Not using a Mixkit URL, this might cause issues');
-    }
+    // For debugging, log the audio source
+    console.log('Audio source:', audioSource);
     
     // Use the URL directly if it's a full URL, otherwise prepend the base URL
     const fullUrl = audioSource.startsWith('http') 
@@ -152,6 +174,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     
     // Set the source and load the audio
     audio.src = fullUrl;
+    
+    // Add a specific event listener for loading issues
+    audio.addEventListener('loadstart', () => {
+      console.log('Audio loading started for:', fullUrl);
+      
+      // Set a timeout to check if loading is taking too long
+      const loadingTimeout = setTimeout(() => {
+        if (audio.readyState < 2) { // HAVE_CURRENT_DATA or lower
+          console.warn('Audio loading is taking too long, may indicate an issue with the source');
+        }
+      }, 5000); // 5 seconds timeout
+      
+      // Clear the timeout when metadata is loaded
+      audio.addEventListener('loadedmetadata', () => {
+        console.log('Audio metadata loaded successfully');
+        clearTimeout(loadingTimeout);
+      }, { once: true });
+    });
+    
+    // Explicitly call load() to begin loading the audio
     audio.load();
     
     // Store the audio element
@@ -167,18 +209,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     };
   }, [storeTrack, volume, isMuted, nextTrack, isPlaying, isDjSpeaking]);
-  
+
   // Effect to handle play/pause state
   useEffect(() => {
-    console.log('Play/pause state changed, isPlaying:', isPlaying, 'isDjSpeaking:', isDjSpeaking);
+    console.log('Play/pause state changed, isPlaying:', isPlaying, 'isDjSpeaking:', isDjSpeaking, 'isTrackChanging:', isTrackChanging);
     if (!audioRef.current) {
       console.log('No audio element available');
       return;
     }
     
-    // Don't play music if DJ is speaking or if another audio is already playing
-    if (isDjSpeaking || (isAudioPlaying && !audioRef.current.src)) {
-      console.log('DJ is speaking or another audio is playing, not playing music');
+    // Only pause music if track is changing or if another audio is already playing
+    // We no longer pause when DJ is speaking - this allows chat interactions while music plays
+    if (isTrackChanging || (isAudioPlaying && !audioRef.current.src)) {
+      console.log('Track is changing or another audio is playing - not playing music');
       return;
     }
     
@@ -199,8 +242,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       console.log('Pausing audio');
       audioRef.current.pause();
     }
-  }, [isPlaying, isDjSpeaking, isAudioPlaying]);
-  
+  }, [isPlaying, isDjSpeaking, isAudioPlaying, isTrackChanging]);
+
   // Handle volume changes
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseInt(e.target.value);
