@@ -12,7 +12,17 @@ npm cache clean --force
 
 # Install dependencies with legacy peer deps flag
 echo "Installing dependencies with --legacy-peer-deps flag..."
-npm install --legacy-peer-deps
+npm install --legacy-peer-deps --no-audit --no-fund
+
+# Check if we're using the new ESLint config
+if [ -f ".eslintrc.cjs" ]; then
+  echo "Using .eslintrc.cjs for ESLint configuration"
+  # Rename the old config to avoid conflicts
+  if [ -f "eslint.config.js" ]; then
+    echo "Renaming eslint.config.js to eslint.config.js.bak to avoid conflicts"
+    mv eslint.config.js eslint.config.js.bak
+  fi
+fi
 
 # Run the build with CI=false to prevent treating warnings as errors
 echo "Building the application..."
