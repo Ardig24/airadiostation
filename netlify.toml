@@ -1,6 +1,10 @@
 [build]
-  command = "npm run build"
+  command = "bash ./netlify-build.sh"
   publish = "dist"
+  environment = { NODE_VERSION = "18" }
+
+[build.environment]
+  NPM_FLAGS = "--legacy-peer-deps"
 
 [dev]
   command = "npm run dev"
