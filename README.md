@@ -74,6 +74,69 @@ npm run dev
   /assets            # Static assets
 ```
 
+## Deployment
+
+### Deploying to Netlify
+
+This project is configured for easy deployment to Netlify.
+
+#### Option 1: Deploy via Netlify UI
+
+1. Build your project locally:
+```bash
+npm run build
+```
+
+2. Create a new site on [Netlify](https://app.netlify.com/)
+
+3. Drag and drop the `dist` folder to the Netlify UI
+
+#### Option 2: Deploy via Netlify CLI
+
+1. Install Netlify CLI:
+```bash
+npm install -g netlify-cli
+```
+
+2. Login to Netlify:
+```bash
+netlify login
+```
+
+3. Initialize your site:
+```bash
+netlify init
+```
+
+4. Deploy your site:
+```bash
+netlify deploy --prod
+```
+
+#### Option 3: Deploy via GitHub Integration
+
+1. Push your code to a GitHub repository
+
+2. Log in to Netlify and click "New site from Git"
+
+3. Select your repository and configure the following settings:
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+   - Environment variables: Add all your API keys from `.env`
+
+4. Click "Deploy site"
+
+### Environment Variables
+
+Make sure to configure these environment variables in Netlify:
+
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_ELEVENLABS_API_KEY=your_elevenlabs_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
+```
+
 ## Contributing
 
 This project is part of a hackathon. Contributions are welcome!
