@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lovable:setup": "lovable-tagger"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
