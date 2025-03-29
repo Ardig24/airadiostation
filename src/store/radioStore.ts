@@ -104,9 +104,45 @@ export const useRadioStore = create<RadioState>((set, get) => ({
   
   startWelcomeSequence: async () => {
     try {
-      console.log('Starting welcome sequence - skipping directly to first track');
+      console.log('Starting welcome sequence with enthusiastic intro');
       
-      // Start first track immediately
+      // Play welcome message first
+      set({ isDjSpeaking: true });
+      
+      // Create enthusiastic welcome message
+      const welcomeMessage = "Hey there and welcome to AI Radio Station! I'm your host DJ ByteBeat, bringing you the hottest tracks and freshest beats! We've got an amazing lineup of music just for you today. Get ready to turn up the volume and enjoy the ultimate listening experience! Let's kick things off with our first track!";
+      
+      // Add welcome message to content items
+      get().addContentItem(welcomeMessage, 'announcement');
+      
+      // Generate speech for welcome message
+      console.log('Generating speech for welcome message');
+      const welcomeAudioUrl = await elevenlabsService.textToSpeech(welcomeMessage);
+      
+      if (welcomeAudioUrl) {
+        // Play the welcome audio
+        console.log('Playing welcome audio');
+        
+        // Create a promise that resolves when the welcome audio finishes
+        await new Promise<void>((resolve) => {
+          const audio = new Audio();
+          audio.src = welcomeAudioUrl;
+          audio.onended = () => {
+            console.log('Welcome audio finished');
+            resolve();
+          };
+          audio.onerror = () => {
+            console.error('Error playing welcome audio');
+            resolve();
+          };
+          audio.play().catch(err => {
+            console.error('Error playing welcome audio:', err);
+            resolve();
+          });
+        });
+      }
+      
+      // Start first track after welcome message
       await get().nextTrack();
       
     } catch (error) {
@@ -114,6 +150,8 @@ export const useRadioStore = create<RadioState>((set, get) => ({
       // Try to start first track even if there's an error
       console.log('Attempting to recover by calling nextTrack');
       await get().nextTrack();
+    } finally {
+      set({ isDjSpeaking: false });
     }
   },
   

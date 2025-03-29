@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Radio, Headphones } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
 import UserInteraction from './UserInteraction';
 import ContentDisplay from './ContentDisplay';
@@ -12,9 +12,11 @@ import WeatherUpdate from './WeatherUpdate';
 import TrafficUpdate from './TrafficUpdate';
 import NewsBulletin from './NewsBulletin';
 import { useRadioStore } from '../store/radioStore';
-import { ContentItem } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import ChatDj from './ChatDj';
+import TabNavigation from './TabNavigation';
+import PodcastPage from './PodcastPage';
+import NewsPage from './NewsPage';
 
 const RadioStation: React.FC = () => {
   const { 
@@ -38,6 +40,7 @@ const RadioStation: React.FC = () => {
   const [showTraffic, setShowTraffic] = useState<boolean>(false);
   const [showNews, setShowNews] = useState<boolean>(false);
   const [dbConnectionStatus, setDbConnectionStatus] = useState<string>('Checking database connection...');
+  const [activeTab, setActiveTab] = useState<string>('music');
 
   // Handle ad completion
   const handleAdComplete = () => {
@@ -49,188 +52,144 @@ const RadioStation: React.FC = () => {
     setTimeout(() => setShowAds(true), 5 * 60 * 1000);
   };
 
-  // Simulate a DJ talking effect
+  // Initialize the radio station
   useEffect(() => {
-    // Every 3 minutes, show an ad
-    const adInterval = setInterval(() => {
-      setShowAds(true);
-    }, 3 * 60 * 1000);
+    initialize();
+  }, [initialize]);
 
-    // Show weather updates periodically
-    const weatherInterval = setInterval(() => {
+  // Check database connection
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('tracks').select('count', { count: 'exact' });
+        if (error) throw error;
+        setDbConnectionStatus(`Connected to database. ${data?.length || 0} tracks available.`);
+      } catch (error) {
+        console.error('Database connection error:', error);
+        setDbConnectionStatus('Database connection failed. Using mock data.');
+      }
+    };
+
+    checkConnection();
+  }, []);
+
+  // Show weather update every 30 minutes
+  useEffect(() => {
+    const showWeatherUpdate = () => {
       setShowWeather(true);
-      // Hide weather after 2 minutes
+      // Hide after 2 minutes
       setTimeout(() => setShowWeather(false), 2 * 60 * 1000);
-    }, 15 * 60 * 1000); // Every 15 minutes
+    };
 
-    // Show traffic updates during commute hours
+    // Show initially after 5 minutes
+    const initialTimeout = setTimeout(showWeatherUpdate, 5 * 60 * 1000);
+    
+    // Then show every 30 minutes
+    const intervalId = setInterval(showWeatherUpdate, 30 * 60 * 1000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Show traffic update during commute hours
+  useEffect(() => {
     const checkTrafficTime = () => {
       const now = new Date();
       const hour = now.getHours();
-      // Show traffic during morning (7-9 AM) and evening (4-7 PM) commute
-      const isCommuteHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19);
+      const isCommute = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
       
-      if (isCommuteHour) {
+      if (isCommute && !showTraffic) {
         setShowTraffic(true);
-        // Hide traffic after 3 minutes
+        // Hide after 3 minutes
         setTimeout(() => setShowTraffic(false), 3 * 60 * 1000);
       }
     };
 
-    // Show news updates at specific times
-    const checkNewsTime = () => {
-      const now = new Date();
-      const minute = now.getMinutes();
-      
-      // Show news at the top of each hour (for 5 minutes)
-      if (minute < 5) {
-        setShowNews(true);
-        // Hide news after 5 minutes
-        setTimeout(() => setShowNews(false), 5 * 60 * 1000);
-      }
+    // Check every 15 minutes
+    const intervalId = setInterval(checkTrafficTime, 15 * 60 * 1000);
+    // Initial check
+    checkTrafficTime();
+
+    return () => clearInterval(intervalId);
+  }, [showTraffic]);
+
+  // Show news bulletin every hour
+  useEffect(() => {
+    const showNewsBulletin = () => {
+      setShowNews(true);
+      // Hide after 5 minutes
+      setTimeout(() => setShowNews(false), 5 * 60 * 1000);
     };
 
-    // Check traffic initially and then every 20 minutes
-    checkTrafficTime();
-    const trafficInterval = setInterval(checkTrafficTime, 20 * 60 * 1000);
+    // Show initially after 15 minutes
+    const initialTimeout = setTimeout(showNewsBulletin, 15 * 60 * 1000);
     
-    // Check news initially and then every 30 minutes
-    checkNewsTime();
-    const newsInterval = setInterval(checkNewsTime, 30 * 60 * 1000);
+    // Then show every hour
+    const intervalId = setInterval(showNewsBulletin, 60 * 60 * 1000);
 
     return () => {
-      clearInterval(adInterval);
-      clearInterval(weatherInterval);
-      clearInterval(trafficInterval);
-      clearInterval(newsInterval);
+      clearTimeout(initialTimeout);
+      clearInterval(intervalId);
     };
   }, []);
 
-  // Initialize the radio station on component mount and start playing automatically
-  useEffect(() => {
-    const initializeRadio = async () => {
-      console.log('Initializing radio station...');
-      try {
-        await initialize();
-        console.log('Radio station initialized successfully');
-        
-        // Check if we have tracks in the queue
-        const currentState = useRadioStore.getState();
-        console.log('Current radio state after initialization:', {
-          queueLength: currentState.queue.length,
-          currentTrack: currentState.currentTrack,
-          isPlaying: currentState.isPlaying,
-          isDjSpeaking: currentState.isDjSpeaking
-        });
-        
-        // Don't auto-play - let user click the play button
-        // This is more reliable and avoids autoplay restrictions
-        console.log('Radio station initialized, waiting for user to press play');
-      } catch (error) {
-        console.error('Error initializing radio station:', error);
-      }
-    };
-    
-    initializeRadio();
-  }, [initialize]);
+  // Prepare display data
+  const displayTrack = currentTrack;
+  const displayContentItems = contentItems.slice(0, 3);
+  const displayQueue = queue.slice(0, 5);
 
-  // Test Supabase connection
-  useEffect(() => {
-    const testSupabaseConnection = async () => {
-      try {
-        const { data, error } = await supabase.from('tracks').select('id');
-        if (error) {
-          setDbConnectionStatus('Error connecting to database: ' + error.message);
-          console.log('Database connection error:', error);
-        } else {
-          setDbConnectionStatus(`Database connection established (${data.length} tracks found)`);
-          console.log('Database connection successful, tracks found:', data);
-        }
-      } catch (error: any) {
-        setDbConnectionStatus('Error connecting to database: ' + (error.message || String(error)));
-        console.error('Exception when connecting to database:', error);
-      }
-    };
-    testSupabaseConnection();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-8 bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
-            <Headphones className="w-12 h-12 text-emerald-400 animate-pulse" />
-          </div>
-          <div className="text-white text-2xl font-bold mb-2">Loading AI Radio Station</div>
-          <div className="text-emerald-400">Tuning in to the perfect frequency...</div>
-          <div className="mt-6">
-            <AudioWaves />
-          </div>
-          <div className="text-white mt-4">{dbConnectionStatus}</div>
-        </div>
-      </div>
-    );
-  }
-  
+  // Handle errors
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-8 bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-center max-w-md">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
-            <Radio className="w-12 h-12 text-red-400" />
-          </div>
-          <div className="text-white text-2xl font-bold mb-2">Connection Error</div>
-          <div className="text-red-400 mb-4">{error}</div>
+      <div 
+        className="min-h-screen py-10 px-4 md:px-8 overflow-x-hidden"
+        style={{
+          backgroundImage: 'url("https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+        <div className="relative z-10 max-w-6xl mx-auto bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+          <h1 className="text-3xl font-bold mb-4">Error</h1>
+          <p className="text-xl text-red-400">{error}</p>
           <button 
-            onClick={() => initialize()}
-            className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
           >
-            Try Again
+            Reload
           </button>
-          <div className="text-white mt-4">{dbConnectionStatus}</div>
         </div>
       </div>
     );
   }
-  
-  // Mock data for development when Supabase connection fails
-  const mockContentItems: ContentItem[] = [
-    {
-      id: '1',
-      type: 'announcement',
-      content: 'Welcome to AI Radio! I\'m your AI DJ and I\'ll be playing some great tunes for you today.',
-      timestamp: new Date()
-    },
-    {
-      id: '2',
-      type: 'track',
-      content: 'Now playing a smooth electronic track with ambient vibes.',
-      title: 'Synthetic Dreams',
-      artist: 'AI Composer',
-      timestamp: new Date(Date.now() - 120000)
-    },
-    {
-      id: '3',
-      type: 'message',
-      content: 'Can you play something more upbeat?',
-      timestamp: new Date(Date.now() - 240000)
-    }
-  ];
-  
-  const mockTrack = {
-    id: '1',
-    title: 'Synthetic Dreams',
-    artist: 'AI Composer',
-    coverArt: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bXVzaWN8ZW58MHx8MHx8fDA%3D',
-    duration: 215,
-    file_url: 'https://assets.mixkit.co/music/download/mixkit-tech-house-vibes-130.mp3' // Added file_url for direct streaming
-  };
-  
-  // Use real data if available, otherwise use mock data
-  const displayContentItems = contentItems.length > 0 ? contentItems : mockContentItems;
-  const displayTrack = currentTrack || mockTrack;
-  const displayQueue = queue.length > 0 ? queue : [mockTrack];
-  
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div 
+        className="min-h-screen py-10 px-4 md:px-8 overflow-x-hidden flex items-center justify-center"
+        style={{
+          backgroundImage: 'url("https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+        <div className="relative z-10 text-center">
+          <h2 className="text-2xl font-bold mb-4">Loading Radio Station...</h2>
+          <div className="w-64 h-16 mx-auto">
+            <AudioWaves />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="min-h-screen py-10 px-4 md:px-8 overflow-x-hidden"
@@ -243,112 +202,123 @@ const RadioStation: React.FC = () => {
     >
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
       
-      <div className="relative z-10 w-full max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">AI Radio Station</h1>
-          <p className="text-emerald-300 text-xl">
-            {currentPlaylist?.name || 'Your 24/7 AI-Powered Music Experience'}
-          </p>
-          <div className="text-white mt-4">{dbConnectionStatus}</div>
-          {/* Display current playback status */}
-          <div className="text-white/70 mt-2">
-            Status: {isPlaying ? 'On Air' : 'Standby'}
+      <div className="relative z-10 max-w-6xl mx-auto">
+        {/* Station Header */}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+          <div className="flex items-center mb-4 md:mb-0">
+            <Radio className="h-8 w-8 mr-3 text-purple-400" />
+            <h1 className="text-3xl font-bold">AI Radio Station</h1>
           </div>
           
-          {/* Add prominent Start Radio button */}
-          {!isPlaying && (
-            <div className="mt-6">
-              <button 
-                onClick={() => {
-                  console.log('Start Radio button clicked');
-                  togglePlayPause();
-                }}
-                className="px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-xl font-bold rounded-full transition-colors shadow-lg animate-pulse"
-              >
-                Start Radio
-              </button>
-              <p className="text-white/70 mt-2 text-sm">
-                Click to enable audio playback
-              </p>
+          <div className="flex items-center space-x-4">
+            <div className="text-sm bg-white/10 px-3 py-1 rounded-full">
+              {isPlaying ? (
+                <span className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Live
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                  Paused
+                </span>
+              )}
             </div>
-          )}
+            
+            <button 
+              onClick={togglePlayPause}
+              className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+          </div>
         </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* Left Column */}
-          <div className="col-span-1 space-y-8">
-            <DjCard 
-              currentVoiceProfile={currentVoiceProfile} 
-              isDjSpeaking={isDjSpeaking} 
-              isChatResponse={isChatResponse}
-            />
-            
-            <ProgramSchedule />
-            
-            {/* Advertisement Section moved under program schedule */}
-            {showAds && (
-              <div className="h-[600px]">
-                <AdvertisementPlayer 
-                  onComplete={handleAdComplete}
+        
+        {/* Tab Navigation */}
+        <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        
+        {/* Main Content - Conditionally render based on active tab */}
+        {activeTab === 'music' ? (
+          <>
+            {/* DJ Card - Only show when DJ is speaking */}
+            {isDjSpeaking && (
+              <div className="mb-8">
+                <DjCard 
+                  currentVoiceProfile={currentVoiceProfile}
+                  isDjSpeaking={isDjSpeaking}
+                  isChatResponse={isChatResponse}
                 />
               </div>
             )}
-          </div>
-
-          {/* Middle Column */}
-          <div className="col-span-1 space-y-8">
-            <AudioPlayer 
-              currentTrack={displayTrack ? {
-                title: displayTrack.title,
-                artist: displayTrack.artist,
-                coverArt: displayTrack.coverArt
-              } : undefined}
-            />
             
-            {/* Song Request moved under audio player */}
-            <UserInteraction />
+            {/* Main Grid Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Left Column */}
+              <div className="col-span-1 space-y-6">
+                <AudioPlayer 
+                  currentTrack={displayTrack ? {
+                    title: displayTrack.title,
+                    artist: displayTrack.artist,
+                    coverArt: displayTrack.coverArt
+                  } : undefined}
+                />
+                
+                {showAds && (
+                  <div className="h-[550px] overflow-hidden">
+                    <AdvertisementPlayer onComplete={handleAdComplete} />
+                  </div>
+                )}
+              </div>
+              
+              {/* Middle Column */}
+              <div className="col-span-1 space-y-6">
+                <ChatDj />
+                {/* Song Request */}
+                <UserInteraction />
+                {/* Traffic Update */}
+                {showTraffic && (
+                  <TrafficUpdate />
+                )}
+                {showNews && (
+                  <NewsBulletin />
+                )}
+              </div>
+              
+              {/* Right Column */}
+              <div className="col-span-1 space-y-6">
+                <ProgramSchedule />
+                <div className="h-[400px] overflow-hidden">
+                  <ContentDisplay contentItems={displayContentItems} />
+                </div>
+                {showWeather && (
+                  <WeatherUpdate />
+                )}
+              </div>
+            </div>
             
-            {/* Traffic Update moved under song request */}
-            {showTraffic && (
-              <TrafficUpdate />
-            )}
-          </div>
-          
-          {/* Right Column */}
-          <div className="col-span-1 space-y-4">
-            <ChatDj />
-            <ContentDisplay contentItems={displayContentItems} />
-          </div>
-        </div>
-
-        {/* Stats Section moved right after main grid */}
-        <div className="mt-8">
-          <StationInfo 
-            listenerCount={listenerCount || 2547}
-            queueLength={displayQueue.length}
-            currentVoiceProfile={currentVoiceProfile}
-            currentPlaylist={currentPlaylist}
-          />
-        </div>
-
-        {/* Dynamic Content Section - Using a grid for better organization */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-          {/* Weather Update - Conditional */}
-          {showWeather && (
-            <div className="col-span-1">
-              <WeatherUpdate compact />
+            {/* Station Info - Full Width at Bottom */}
+            <div className="mt-8 bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+              <StationInfo 
+                listenerCount={listenerCount}
+                queueLength={displayQueue.length}
+                currentVoiceProfile={currentVoiceProfile}
+                currentPlaylist={currentPlaylist}
+              />
             </div>
-          )}
 
-          {/* News Bulletin - Conditional */}
-          {showNews && (
-            <div className="col-span-1 md:col-span-2">
-              <NewsBulletin />
+            {/* Footer */}
+            <div className="mt-8 text-center text-gray-400 text-sm">
+              <p>&copy; {new Date().getFullYear()} AI Radio Station. All rights reserved.</p>
+              <p className="mt-1">{dbConnectionStatus}</p>
             </div>
-          )}
-        </div>
+          </>
+        ) : activeTab === 'podcast' ? (
+          /* Podcast Page */
+          <PodcastPage />
+        ) : (
+          /* News Page */
+          <NewsPage />
+        )}
       </div>
     </div>
   );

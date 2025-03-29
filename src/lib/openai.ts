@@ -108,7 +108,8 @@ export class OpenAIService {
   
   // Generate response to user message
   async generateResponseToUser(userMessage: string): Promise<string> {
-    const prompt = `A listener has sent this message: "${userMessage}". Create a brief, friendly response as if you're a radio DJ. Keep it concise (30-50 words) and conversational.`;
+    // Make sure we use the full message
+    const prompt = `A listener has sent this message: "${userMessage}". Create a brief, friendly response as if you're a radio DJ. Be enthusiastic and engaging. Make sure to reference the FULL content of their message in your response.`;
     return this.callOpenAI(prompt);
   }
   
@@ -130,11 +131,13 @@ export class OpenAIService {
   
   private getRandomTrackIntro(): string {
     const intros = [
-      "Up next, we've got a fantastic track that I think you're going to love. Enjoy!",
-      "This next song is one of my personal favorites. Let's give it a listen!",
-      "Coming up, a great tune that's been making waves. Enjoy the rhythm!",
-      "Let's keep the music flowing with this next amazing track.",
-      "You're listening to AI Radio, and this next track is sure to get you moving."
+      "Alright music lovers! Get ready for an absolute BANGER coming your way! This track is guaranteed to get your energy up and your feet moving! Let's crank up the volume! 🔥",
+      "Oh WOW! I'm super excited to play this next masterpiece for you! It's been blowing up the charts and I just KNOW you're going to love every second of it! Let's dive in!",
+      "Hold onto your headphones, because this next track is about to take you on an incredible musical journey! The beat, the melody, the vibe - it's all PERFECTION! Here we go!",
+      "I've been waiting ALL DAY to play this next track for you! It's got that special something that makes it absolutely irresistible! Turn it up and let yourself feel the rhythm!",
+      "This next song? Absolute FIRE! I can't stop playing it on repeat, and I bet you'll be doing the same! Get ready for a mind-blowing musical experience!",
+      "Coming in HOT with this next track that's been dominating the airwaves! The energy is unmatched and the production is stellar! You're in for a treat!",
+      "I'm literally bouncing in my chair right now because I get to share THIS incredible song with you! It's the definition of a perfect track! Let's enjoy it together!"
     ];
     
     return intros[Math.floor(Math.random() * intros.length)];
@@ -166,11 +169,11 @@ export class OpenAIService {
   
   private getRandomUserResponse(): string {
     const responses = [
-      "Thanks for your message! We love hearing from our listeners. Keep enjoying the music!",
-      "Great to hear from you! Your request has been noted. Stay tuned!",
-      "Thanks for reaching out! We appreciate your input and hope you're enjoying the station.",
-      "Hello there! Thanks for your message. Keep listening for more great music!",
-      "We appreciate you taking the time to write in! Keep the feedback coming!"
+      "BOOM! Thanks for your COMPLETE message! I've read EVERY WORD and I'm totally here for it! Keep those awesome messages coming, and enjoy the EPIC music!",
+      "You're AMAZING for sending that message! I've got your FULL request and I'm on it! Let's keep this awesome music flowing just for YOU!",
+      "WOW! I absolutely LOVE hearing from listeners like you! Your complete message means the world to me! Keep that energy up as we dive into more incredible tracks!",
+      "OH YEAH! Your message just made my day! I've got EVERYTHING you said and I'm all about it! Let's keep this incredible radio experience going strong!",
+      "You're what makes this radio station AWESOME! Thanks for your complete message - every word matters to us! Keep those vibes high as we continue with more fantastic music!"
     ];
     
     return responses[Math.floor(Math.random() * responses.length)];

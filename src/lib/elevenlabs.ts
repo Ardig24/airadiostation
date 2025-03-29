@@ -6,30 +6,79 @@ export class ElevenLabsService {
   private voiceId: string = 'pNInz6obpgDQGcFmaJgB'; // Default voice ID (Adam)
   
   constructor() {
-    this.apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
+    this.apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || 'mock-api-key';
     
-    if (!this.apiKey) {
-      console.error('Missing ElevenLabs API key. Voice synthesis will not work.');
+    if (!this.apiKey || this.apiKey === 'mock-api-key') {
+      console.error('Missing ElevenLabs API key or using mock implementation. Voice synthesis may not work as expected.');
     }
   }
   
   // Set a different voice ID
   setVoice(voiceId: string): void {
+    console.log('Setting voice ID to:', voiceId);
     this.voiceId = voiceId;
+  }
+  
+  // Simple hash function to create variation in mock audio
+  private simpleHash(text: string): number {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
   }
   
   // Convert text to speech and return audio URL
   async textToSpeech(text: string): Promise<string | null> {
-    console.log('ElevenLabs textToSpeech called with:', text);
+    console.log('ElevenLabs textToSpeech called with:', text.substring(0, 50) + '...');
+    console.log('Using voice ID:', this.voiceId);
     
-    if (!this.apiKey) {
-      console.error('Missing ElevenLabs API key. Voice synthesis will not work.');
-      return null;
+    // For testing without an API key, use mock audio URLs
+    if (this.apiKey === 'mock-api-key') {
+      console.log('Using mock audio implementation');
+      
+      // Create a deterministic but varied selection of audio files based on text content
+      // This ensures different messages get different audio files
+      const textHash = this.simpleHash(text);
+      console.log(`Generated hash for text: ${textHash}`);
+      
+      // Use different test audio files for different voices
+      const alexAudioOptions = [
+        'https://assets.mixkit.co/sfx/preview/mixkit-male-voice-cheer-2010.mp3',
+        'https://assets.mixkit.co/sfx/preview/mixkit-cartoon-man-scream-477.mp3',
+        'https://assets.mixkit.co/sfx/preview/mixkit-male-voice-countdown-1954.mp3',
+        'https://assets.mixkit.co/sfx/preview/mixkit-crowd-male-cheer-and-applause-510.mp3'
+      ];
+      
+      const rachelAudioOptions = [
+        'https://assets.mixkit.co/sfx/preview/mixkit-female-voice-countdown-321.mp3',
+        'https://assets.mixkit.co/sfx/preview/mixkit-girl-saying-woohoo-343.mp3',
+        'https://assets.mixkit.co/sfx/preview/mixkit-female-long-scream-476.mp3',
+        'https://assets.mixkit.co/sfx/preview/mixkit-female-giggle-493.mp3'
+      ];
+      
+      // Select audio based on voice ID and text hash
+      if (this.voiceId === 'pNInz6obpgDQGcFmaJgB') { // Alex/Adam voice
+        const selectedIndex = textHash % alexAudioOptions.length;
+        const selectedAudio = alexAudioOptions[selectedIndex];
+        console.log(`Selected Alex audio ${selectedIndex + 1}/${alexAudioOptions.length}: ${selectedAudio}`);
+        return selectedAudio;
+      } else if (this.voiceId === 'EXAVITQu4vr4xnSDxMaL') { // Rachel voice
+        const selectedIndex = textHash % rachelAudioOptions.length;
+        const selectedAudio = rachelAudioOptions[selectedIndex];
+        console.log(`Selected Rachel audio ${selectedIndex + 1}/${rachelAudioOptions.length}: ${selectedAudio}`);
+        return selectedAudio;
+      } else {
+        // Default fallback
+        console.log('Using default audio fallback');
+        return 'https://assets.mixkit.co/sfx/preview/mixkit-simple-countdown-922.mp3';
+      }
     }
     
     try {
       console.log('Making ElevenLabs API request with voice ID:', this.voiceId);
-      console.log('Using API key:', this.apiKey.substring(0, 5) + '...');
       
       const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}`,
@@ -50,38 +99,24 @@ export class ElevenLabsService {
         }
       );
       
-      console.log('ElevenLabs API response status:', response.status);
-      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('ElevenLabs API error response:', errorData);
-        console.error(`ElevenLabs API error: ${response.status} - ${response.statusText}`);
-        
-        // For testing purposes, return a fallback audio URL
-        console.log('Using fallback audio for testing');
-        return 'https://assets.mixkit.co/sfx/preview/mixkit-simple-countdown-922.mp3';
+        const errorText = await response.text();
+        console.error(`ElevenLabs API error (${response.status}):`, errorText);
+        return null;
       }
       
-      console.log('ElevenLabs API response received successfully');
-      // Create a blob URL from the audio response
+      // Get the audio data
       const audioBlob = await response.blob();
-      console.log('Audio blob size:', audioBlob.size, 'bytes');
+      console.log('Received audio blob of size:', audioBlob.size);
       
-      if (audioBlob.size === 0) {
-        console.error('Received empty audio blob from ElevenLabs');
-        // For testing purposes, return a fallback audio URL
-        return 'https://assets.mixkit.co/sfx/preview/mixkit-simple-countdown-922.mp3';
-      }
+      // Create a URL for the audio blob
+      const audioUrl = URL.createObjectURL(audioBlob);
+      console.log('Created audio URL:', audioUrl);
       
-      const objectUrl = URL.createObjectURL(audioBlob);
-      console.log('Created audio blob URL:', objectUrl);
-      return objectUrl;
+      return audioUrl;
     } catch (error) {
-      console.error('Error generating speech:', error);
-      
-      // For testing purposes, return a fallback audio URL
-      console.log('Using fallback audio due to error');
-      return 'https://assets.mixkit.co/sfx/preview/mixkit-simple-countdown-922.mp3';
+      console.error('Error in ElevenLabs text-to-speech:', error);
+      return null;
     }
   }
   
